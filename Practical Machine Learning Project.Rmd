@@ -1,0 +1,110 @@
+---
+title: "Practical Machine Learning Project"
+author: "Rasul Balayev"
+date: "1/27/2021"
+output: html_document
+---
+
+## Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+ 
+
+## Loading the data,libraries and exploratory analysis
+### Loading libraries
+
+```{r}
+library(caret)
+library(rattle)
+library(randomForest)
+library(corrplot) 
+library(knitr)
+library(rpart)
+library(rpart.plot)
+set.seed(123)   
+
+```
+
+###Loading and Cleaning the data
+
+```{r }
+datatrain <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),header=TRUE)
+datatest <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"),header=TRUE)
+dim(datatest)
+head(datatest)
+head(datatrain)
+dim(datatrain)
+
+inTrain  <- createDataPartition(datatrain$classe, p=0.7, list=FALSE)
+trainset <- datatrain[inTrain, ]
+testset  <- datatrain[-inTrain, ]
+dim(trainset)
+dim(testset)
+
+NZV <- nearZeroVar(trainset)
+trainset <- trainset[, -NZV]
+testset  <- testset[, -NZV]
+dim(trainset)
+dim(testset)
+NAvalue    <- sapply(trainset, function(x) mean(is.na(x))) > 0.95
+trainset <- trainset[, NAvalue==FALSE]
+testset  <- testset[, NAvalue==FALSE]
+dim(trainset)
+dim(testset)
+## we don't need id values
+trainset <- trainset[, -(1:5)]
+testset  <- testset[, -(1:5)]
+dim(trainset)
+dim(testset)
+```
+##Model Building
+Random Forests, Decision Tree and Generalized Boosted Model will be used and out of these 3 best will be selected
+### Random Forest
+```{r}
+set.seed(123)
+crf <- trainControl(method="cv", number=3, verboseIter=FALSE)
+mrf <- train(classe ~ ., data=trainset, method="rf",
+                          trControl=crf)
+mrf$finalModel
+prf <- predict(mrf, newdata=testset)
+confusionMatrix(table(testset$classe,prf))
+```
+
+Random forest  Accuracy : 0.9981
+
+###Deciosion tree
+```{r}
+set.seed(123)
+dtree<- rpart(classe ~ ., data=trainset, method="class")
+fancyRpartPlot(dtree)
+
+pdtree <- predict(dtree, newdata=testset, type="class")
+confusionMatrix(table(pdtree, testset$classe))
+
+```
+
+Decision tree Accuracy : 0.82
+
+###Generalized Boosted Model
+```{r}
+
+set.seed(123)
+cgbm <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+mgbm  <- train(classe ~ ., data=trainset, method = "gbm",
+                    trControl = cgbm, verbose = FALSE)
+mgbm$finalModel
+pgbm <- predict(mgbm, newdata=testset)
+ confusionMatrix(table(pgbm, testset$classe))
+
+```
+ Generalized Boosted Model Accuracy: 0.9881
+ 
+ ### Best model to use
+ Random forest  Accuracy : 0.9981 
+ Decision tree Accuracy : 0.82
+ Generalized Boosted Model Accuracy:0.9881
+ 
+ Finally it is more reasonable tu use Random forest 
+``` {r} 
+predictTEST <- predict(mrf, newdata=datatest)
+predictTEST
+```
